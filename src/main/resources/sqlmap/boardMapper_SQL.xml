@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.mapper.BoardMapper">
+	
+	<resultMap type="boardVO" id="boardMap">
+		<id property="boNo" column="bo_no"/>
+		<result property="boNo" column="bo_no"/>
+		<result property="boTitle" column="bo_title"/>
+		<result property="boContent" column="bo_content"/>
+		<result property="boWriter" column="bo_writer"/>
+		<result property="boDate" column="bo_date"/>
+		<result property="boHit" column="bo_hit"/>
+		<collection property="boardFileList" resultMap="boardFileMap"/>
+	</resultMap>
+	
+	<resultMap type="boardFileVO" id="boardFileMap">
+		<id property="fileNo" column="file_no"/>
+		<result property="fileNo" column="file_no"/>
+		<result property="fileName" column="file_name"/>
+		<result property="fileSize" column="file_size"/>
+		<result property="fileFancysize" column="file_fancysize"/>
+		<result property="fileMime" column="file_mime"/>
+		<result property="fileSavepath" column="file_savepath"/>
+		<result property="fileDowncount" column="file_downcount"/>
+	</resultMap>
+
+	<sql id="boardSearch">
+		<if test="searchType != null and searchType == 'title'">
+			and (bo_title like '%'||#{searchWord}||'%')
+		</if>
+		<if test="searchType != null and searchType == 'writer'">
+			and (bo_writer like '%'||#{searchWord}||'%')
+		</if>
+	</sql>
+
+
+	<select id="selectBoardCount" parameterType="pagingVO" resultType="int">
+		select count(bo_no)
+		from board
+		where 1=1
+		<include refid="boardSearch"/>
+	</select>
+
+	<select id="selectBoardList" parameterType="pagingVO" resultType="boardVO">
+		select
+			b.*
+		from(
+			select
+				a.*, row_number() over (order by a.bo_no desc) rnum
+			from(
+				select 
+					bo_no, bo_title, bo_content, bo_writer, bo_date, bo_hit
+				from board
+				where 1=1
+				<include refid="boardSearch"/>
+				order by bo_no desc
+				) a
+			) b
+			<![CDATA[
+			where b.rnum >= #{startRow} and b.rnum <= #{endRow}
+			]]>
+	</select>
+	
+	<insert id="insertBoard" parameterType="boardVO" useGeneratedKeys="true">
+		<selectKey keyProperty="boNo" resultType="int" order="BEFORE">
+			select seq_board.nextval from dual
+		</selectKey>
+		insert into board(
+			bo_no, bo_title, bo_content, bo_writer, bo_date
+		)values(
+			#{boNo}, #{boTitle}, #{boContent},#{boWriter}, sysdate
+		)
+	</insert>
+
+	
+	<insert id="insertBoardFile" parameterType="boardFileVO">
+		insert into boardFile(
+			file_no, bo_no, file_name, file_size, file_fancysize, file_mime, file_savepath, file_downcount
+		)values(
+			seq_boardfile.nextval, #{boNo},#{fileName},#{fileSize},#{fileFancysize},#{fileMime},#{fileSavepath}, 0
+		)
+	</insert>
+	
+	<select id="selectBoard" parameterType="int" resultMap="boardMap">
+		select
+			b.bo_no, bo_title, bo_content, bo_writer, bo_date, 
+			file_no, file_name, file_size, file_fancysize, file_mime, file_savepath, file_downcount
+		from board b left outer join boardFile bf on(b.bo_no = bf.bo_no)
+		where b.bo_no = #{boNo}
+	</select>
+
+	
+	<select id="selectFileInfo" parameterType="int" resultType="boardFileVO">
+		select
+			file_no, file_name, file_size, file_fancysize, file_mime, file_savepath, file_downcount
+		from boardfile
+		where file_no = #{fileNo}
+	</select>
+	
+	<delete id="deleteBoardFile" parameterType="int">
+		delete from boardfile
+		where bo_no = #{boNo}
+	</delete>
+	
+	<delete id="deleteBoard" parameterType="int">
+		delete from board
+		where bo_no = #{boNo}
+	</delete>
+	
+	<update id="updateBoard" parameterType="boardVO">
+		update board
+		set 
+			bo_title = #{boTitle},
+			bo_content = #{boContent},
+			bo_date = sysdate
+		where bo_no = #{boNo}
+	</update>
+	
+	<delete id="deleteBoardFileList">
+		delete from boardfile
+		<where>
+			file_no in
+			<foreach collection="array" item="fileNo" open="(" close=")" separator=",">
+				#{fileNo}
+			</foreach>
+		</where>			
+	</delete>
+
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
